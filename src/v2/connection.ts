@@ -124,7 +124,6 @@ export function createMysqlConnection(config: TcpConnectionProps) {
 
 function onSocketConnected(conn: Connection) {
   return () => {
-    console.log('Connected...');
     if (conn.connectTimeout != null) {
       clearTimeout(conn.connectTimeout);
       conn.connectTimeout = null;
@@ -151,7 +150,7 @@ function onSocketData(conn: Connection) {
 
 function onSocketClosed(conn: Connection) {
   return () => {
-    console.log('onSocketClosed');
+    //console.log('onSocketClosed');
   };
 }
 
@@ -256,8 +255,17 @@ function onReceivedPacket(conn: Connection) {
           // Ignore the error that server sends on close
           return;
         }
+        if (conn.config.debug) console.log(error.code, error.message);
+        const mysqlError = new MysqlError(error.message, error.code, true);
 
-        handleFatalError(conn, new MysqlError(error.message, error.code, true));
+        if (
+          conn.ongoingCommand != null &&
+          conn.ongoingCommand instanceof QueryCommand
+        ) {
+          conn.ongoingCommand.onPacketError(mysqlError);
+        }
+
+        handleFatalError(conn, mysqlError);
       } else {
         // Otherwise, it means it's some other unexpected packet.
         handleFatalError(
@@ -270,6 +278,8 @@ function onReceivedPacket(conn: Connection) {
         );
       }
 
+      conn.ongoingCommand = null;
+      conn.sequenceId = 0;
       return;
     }
 
@@ -303,7 +313,7 @@ export function bumpSequenceId(conn: Connection, numPackets: number) {
 
 function closeConnection(conn: Connection) {
   return () => {
-    console.log('closeConnection');
+    if (conn.config.debug) console.log('Closing connection...');
     conn.isClosing = true;
 
     return new Promise<void>((resolve) => {
@@ -316,9 +326,6 @@ function closeConnection(conn: Connection) {
 
 export function authorizedConnection(conn: Connection) {
   conn.authorized = true;
-
-  console.log('Authorized!');
-
   conn.authorizedResolvers.forEach((resolver) => resolver());
 }
 
@@ -335,6 +342,14 @@ export function handleFatalError(conn: Connection, error: MysqlError) {
   conn.fatalError = error;
   closeConnection(conn)();
   conn.errorCallbacks.forEach((fn) => fn(error));
+
+  conn.queuedCommands.forEach((command) => {
+    if (command instanceof QueryCommand)
+      command.onPacketError(
+        new MysqlError('', 'An earlier command threw an error', true)
+      );
+  });
+  conn.queuedCommands = [];
 }
 
 export function writePacket(conn: Connection, packet: Packet) {

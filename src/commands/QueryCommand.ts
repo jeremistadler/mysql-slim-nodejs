@@ -21,15 +21,15 @@ export class QueryCommand implements Command {
 
   handlePacket: CommandHandlePacketFn;
   _commandName = 'Query';
-  _fieldCount: number = 0;
-  _receivedFieldsCount: number = 0;
+  private _fieldCount: number = 0;
+  private _receivedFieldsCount: number = 0;
   _rows: ParsedRowType[][] = [];
   _fields: ColumnDefinitionPacket[][] = [];
-  _resultIndex: number = 0;
+  private _resultIndex: number = 0;
   _resultSet: ResultSetHeaderPacket | null = null;
 
   private completeCallback!: () => void;
-  private errorCallback!: () => void;
+  private errorCallback!: (err: MysqlError) => void;
   public promise: Promise<void>;
 
   constructor(commandInput: { sql: string; values: any[] }) {
@@ -59,7 +59,11 @@ export class QueryCommand implements Command {
     });
   }
 
-  start(_packet: Packet, connection: Connection) {
+  public onPacketError(err: MysqlError) {
+    this.errorCallback(err);
+  }
+
+  private start(_packet: Packet, connection: Connection) {
     if (connection.config.debug) {
       // eslint-disable-next-line
       console.log('        Sending query command: %s', this.sql);
@@ -71,7 +75,7 @@ export class QueryCommand implements Command {
     return this.resultsetHeader;
   }
 
-  resultsetHeader(packet: Packet, connection: Connection) {
+  private resultsetHeader(packet: Packet, connection: Connection) {
     const rs = new ResultSetHeaderPacket(packet, connection);
     this._fieldCount = rs.fieldCount;
 
@@ -93,7 +97,7 @@ export class QueryCommand implements Command {
     return this.readField;
   }
 
-  readField(packet: Packet, connection: Connection) {
+  private readField(packet: Packet, connection: Connection) {
     this._receivedFieldsCount++;
     // Often there is much more data in the column definition than in the row itself
     // If you set manually _fields[0] to array of ColumnDefinition's (from previous call)
@@ -129,7 +133,7 @@ export class QueryCommand implements Command {
     return this.readField;
   }
 
-  done() {
+  private done() {
     // if all ready timeout, return null directly
     // if (this.timeout && !this.queryTimeout) {
     //   return null;
@@ -164,7 +168,7 @@ export class QueryCommand implements Command {
     return null;
   }
 
-  doneInsert(rs: ResultSetHeaderPacket | null) {
+  private doneInsert(rs: ResultSetHeaderPacket | null) {
     this._resultSet = rs;
 
     if (rs != null && rs.serverStatus & SERVER_MORE_RESULTS_EXISTS) {
@@ -175,7 +179,7 @@ export class QueryCommand implements Command {
     return this.done();
   }
 
-  fieldsEOF(packet: Packet, connection: Connection) {
+  private fieldsEOF(packet: Packet, connection: Connection) {
     // check EOF
     if (!packet.isEOF()) {
       handleFatalError(
@@ -187,7 +191,7 @@ export class QueryCommand implements Command {
     return this.row;
   }
 
-  row(packet: Packet, _connection: Connection) {
+  private row(packet: Packet, _connection: Connection) {
     if (packet.isEOF()) {
       const status = packet.eofStatusFlags();
       const moreResults = status & SERVER_MORE_RESULTS_EXISTS;
@@ -215,7 +219,7 @@ export class QueryCommand implements Command {
     return this.row;
   }
 
-  infileOk(packet: Packet, connection: Connection) {
+  private infileOk(packet: Packet, connection: Connection) {
     const rs = new ResultSetHeaderPacket(packet, connection);
     return this.doneInsert(rs);
   }

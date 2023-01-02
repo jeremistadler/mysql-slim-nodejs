@@ -230,11 +230,11 @@ export class Packet {
         // max exact float point int, 2^52 / 2^32
         return word1 * 0x100000000 + word0;
       }
-      res = new Long(word0, word1, !signed); // Long need unsigned
-      const resNumber = res.toNumber();
-      const resString = res.toString();
-      res = resNumber.toString() === resString ? resNumber : resString;
-      return bigNumberStrings ? resString : res;
+      // res = new Long(word0, word1, !signed); // Long need unsigned
+      // const resNumber = res.toNumber();
+      // const resString = res.toString();
+      // res = resNumber.toString() === resString ? resNumber : resString;
+      // return bigNumberStrings ? resString : res;
     }
     // eslint-disable-next-line no-console
     console.trace();
@@ -259,141 +259,6 @@ export class Packet {
     }
     this.offset += len;
     return this.buffer.subarray(this.offset - len, this.offset);
-  }
-
-  // DATE, DATETIME and TIMESTAMP
-  readDateTime(timezone: string): Date | null {
-    if (!timezone || timezone === 'Z' || timezone === 'local') {
-      const length = this.readInt8();
-      if (length === 0xfb) {
-        return null;
-      }
-      let y = 0;
-      let m = 0;
-      let d = 0;
-      let H = 0;
-      let M = 0;
-      let S = 0;
-      let ms = 0;
-      if (length > 3) {
-        y = this.readInt16();
-        m = this.readInt8();
-        d = this.readInt8();
-      }
-      if (length > 6) {
-        H = this.readInt8();
-        M = this.readInt8();
-        S = this.readInt8();
-      }
-      if (length > 10) {
-        ms = this.readInt32() / 1000;
-      }
-      // NO_ZERO_DATE mode and NO_ZERO_IN_DATE mode are part of the strict
-      // default SQL mode used by MySQL 8.0. This means that non-standard
-      // dates like '0000-00-00' become NULL. For older versions and other
-      // possible MySQL flavours we still need to account for the
-      // non-standard behaviour.
-      if (y + m + d + H + M + S + ms === 0) {
-        return INVALID_DATE;
-      }
-      if (timezone === 'Z') {
-        return new Date(Date.UTC(y, m - 1, d, H, M, S, ms));
-      }
-      return new Date(y, m - 1, d, H, M, S, ms);
-    }
-    let str = this.readDateTimeString(6, 'T');
-    if (str === undefined) return null;
-
-    if (str.length === 10) {
-      str += 'T00:00:00';
-    }
-    return new Date(str + timezone);
-  }
-
-  readDateTimeString(decimals: boolean, timeSep?: string) {
-    const length = this.readInt8();
-    let y = 0;
-    let m = 0;
-    let d = 0;
-    let H = 0;
-    let M = 0;
-    let S = 0;
-    let ms = 0;
-    let str = '';
-    if (length > 3) {
-      y = this.readInt16();
-      m = this.readInt8();
-      d = this.readInt8();
-      str = [
-        leftPad(4, y.toString()),
-        leftPad(2, m.toString()),
-        leftPad(2, d.toString()),
-      ].join('-');
-    }
-    if (length > 6) {
-      H = this.readInt8();
-      M = this.readInt8();
-      S = this.readInt8();
-      str += `${timeSep || ' '}${[
-        leftPad(2, H.toString()),
-        leftPad(2, M.toString()),
-        leftPad(2, S.toString()),
-      ].join(':')}`;
-    }
-    if (length > 10) {
-      ms = this.readInt32();
-      str += '.';
-      if (decimals) {
-        ms = leftPad(6, ms.toString());
-        if (ms.length > decimals) {
-          ms = ms.substring(0, decimals); // rounding is done at the MySQL side, only 0 are here
-        }
-      }
-      str += ms;
-    }
-    return str;
-  }
-
-  // TIME - value as a string, Can be negative
-  readTimeString(convertTtoMs: boolean) {
-    const length = this.readInt8();
-    if (length === 0) {
-      return '00:00:00';
-    }
-    const sign = this.readInt8() ? -1 : 1; // 'isNegative' flag byte
-    let d = 0;
-    let H = 0;
-    let M = 0;
-    let S = 0;
-    let ms = 0;
-    if (length > 6) {
-      d = this.readInt32();
-      H = this.readInt8();
-      M = this.readInt8();
-      S = this.readInt8();
-    }
-    if (length > 10) {
-      ms = this.readInt32();
-    }
-    if (convertTtoMs) {
-      H += d * 24;
-      M += H * 60;
-      S += M * 60;
-      ms += S * 1000;
-      ms *= sign;
-      return ms;
-    }
-    // Format follows mySQL TIME format ([-][h]hh:mm:ss[.u[u[u[u[u[u]]]]]])
-    // For positive times below 24 hours, this makes it equal to ISO 8601 times
-    return (
-      (sign === -1 ? '-' : '') +
-      [
-        leftPad(2, (d * 24 + H).toString()),
-        leftPad(2, M.toString()),
-        leftPad(2, S.toString()),
-      ].join(':') +
-      (ms ? `.${ms}`.replace(/0+$/, '') : '')
-    );
   }
 
   readLengthCodedString(encoding: string): string | null {
@@ -472,7 +337,7 @@ export class Packet {
         return sign === -1 ? `-${str}` : str;
       }
       if (numDigits > 16) {
-        str = this.readString(end - this.offset);
+        str = this.readString(end - this.offset, 'utf8');
         return sign === -1 ? `-${str}` : str;
       }
     }
@@ -524,137 +389,7 @@ export class Packet {
     return result * sign;
   }
 
-  // copy-paste from https://github.com/mysqljs/mysql/blob/master/lib/protocol/Parser.js
-  parseGeometryValue() {
-    const buffer = this.readLengthCodedBuffer();
-    let offset = 4;
-    if (buffer === null || !buffer.length) {
-      return null;
-    }
-    function parseGeometry() {
-      let x, y, i, j, numPoints, line;
-      let result = null;
-      const byteOrder = buffer.readUInt8(offset);
-      offset += 1;
-      const wkbType = byteOrder
-        ? buffer.readUInt32LE(offset)
-        : buffer.readUInt32BE(offset);
-      offset += 4;
-      switch (wkbType) {
-        case 1: // WKBPoint
-          x = byteOrder
-            ? buffer.readDoubleLE(offset)
-            : buffer.readDoubleBE(offset);
-          offset += 8;
-          y = byteOrder
-            ? buffer.readDoubleLE(offset)
-            : buffer.readDoubleBE(offset);
-          offset += 8;
-          result = { x: x, y: y };
-          break;
-        case 2: // WKBLineString
-          numPoints = byteOrder
-            ? buffer.readUInt32LE(offset)
-            : buffer.readUInt32BE(offset);
-          offset += 4;
-          result = [];
-          for (i = numPoints; i > 0; i--) {
-            x = byteOrder
-              ? buffer.readDoubleLE(offset)
-              : buffer.readDoubleBE(offset);
-            offset += 8;
-            y = byteOrder
-              ? buffer.readDoubleLE(offset)
-              : buffer.readDoubleBE(offset);
-            offset += 8;
-            result.push({ x: x, y: y });
-          }
-          break;
-        case 3: // WKBPolygon
-          // eslint-disable-next-line no-case-declarations
-          const numRings = byteOrder
-            ? buffer.readUInt32LE(offset)
-            : buffer.readUInt32BE(offset);
-          offset += 4;
-          result = [];
-          for (i = numRings; i > 0; i--) {
-            numPoints = byteOrder
-              ? buffer.readUInt32LE(offset)
-              : buffer.readUInt32BE(offset);
-            offset += 4;
-            line = [];
-            for (j = numPoints; j > 0; j--) {
-              x = byteOrder
-                ? buffer.readDoubleLE(offset)
-                : buffer.readDoubleBE(offset);
-              offset += 8;
-              y = byteOrder
-                ? buffer.readDoubleLE(offset)
-                : buffer.readDoubleBE(offset);
-              offset += 8;
-              line.push({ x: x, y: y });
-            }
-            result.push(line);
-          }
-          break;
-        case 4: // WKBMultiPoint
-        case 5: // WKBMultiLineString
-        case 6: // WKBMultiPolygon
-        case 7: // WKBGeometryCollection
-          // eslint-disable-next-line no-case-declarations
-          const num = byteOrder
-            ? buffer.readUInt32LE(offset)
-            : buffer.readUInt32BE(offset);
-          offset += 4;
-          result = [];
-          for (i = num; i > 0; i--) {
-            result.push(parseGeometry());
-          }
-          break;
-      }
-      return result;
-    }
-    return parseGeometry();
-  }
-
-  parseDate(timezone) {
-    const strLen = this.readLengthCodedNumber(false, false);
-    if (strLen === null) {
-      return null;
-    }
-    if (strLen !== 10) {
-      // we expect only YYYY-MM-DD here.
-      // if for some reason it's not the case return invalid date
-      return new Date(NaN);
-    }
-    const y = this.parseInt(4);
-    this.offset++; // -
-    const m = this.parseInt(2);
-    this.offset++; // -
-    const d = this.parseInt(2);
-    if (!timezone || timezone === 'local') {
-      return new Date(y, m - 1, d);
-    }
-    if (timezone === 'Z') {
-      return new Date(Date.UTC(y, m - 1, d));
-    }
-    return new Date(
-      `${leftPad(4, y)}-${leftPad(2, m)}-${leftPad(2, d)}T00:00:00${timezone}`
-    );
-  }
-
-  parseDateTime(timezone) {
-    const str = this.readLengthCodedString('binary');
-    if (str === null) {
-      return null;
-    }
-    if (!timezone || timezone === 'local') {
-      return new Date(str);
-    }
-    return new Date(`${str}${timezone}`);
-  }
-
-  parseFloat(len) {
+  parseFloat(len: null | number) {
     if (len === null) {
       return null;
     }
@@ -681,7 +416,7 @@ export class Packet {
       } else if (charCode === exponent || charCode === exponentCapital) {
         this.offset++;
         const exponentValue = this.parseInt(end - this.offset, false);
-        return (result / factor) * Math.pow(10, exponentValue);
+        return (result / factor) * Math.pow(10, exponentValue as number);
       } else {
         result *= 10;
         result += this.buffer[this.offset] - 48;
@@ -695,7 +430,7 @@ export class Packet {
   }
 
   parseLengthCodedIntNoBigCheck() {
-    return this.parseIntNoBigCheck(this.readLengthCodedNumber(false, false));
+    return this.parseIntNoBigCheck(this.readLengthCodedNumber(false, false)!);
   }
 
   parseLengthCodedInt(supportBigNumbers: boolean) {
