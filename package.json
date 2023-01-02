@@ -18,7 +18,8 @@
     "size": "size-limit",
     "start": "dts watch",
     "test": "dts test",
-    "bench": "node -r esbuild-register benchmark/bench.ts"
+    "bench": "node -r esbuild-register benchmark/bench.ts",
+    "testOld": "node -r esbuild-register test/regressions/test-#82.ts"
   },
   "husky": {
     "hooks": {
@@ -52,10 +53,11 @@
     "@size-limit/preset-small-lib": "^8.0.0",
     "@tsconfig/recommended": "^1.0.1",
     "dts-cli": "^1.5.2",
-    "esbuild": "^0.14.53",
+    "esbuild": "^0.15.5",
     "esbuild-register": "^3.3.3",
     "husky": "^8.0.1",
     "size-limit": "^8.0.0",
+    "@types/node": "^18.7.16",
     "tslib": "^2.4.0",
     "typescript": "^4.7.4"
   }
