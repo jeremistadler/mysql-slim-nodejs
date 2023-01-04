@@ -1,5 +1,5 @@
 {
-  "name": "mysql3",
+  "name": "mysql-slim-nodejs",
   "version": "0.1.0",
   "license": "MIT",
   "author": "Jeremi Stadler",
