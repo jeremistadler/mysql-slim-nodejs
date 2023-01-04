@@ -7,7 +7,7 @@ export async function createTestConnection() {
     password: '',
     database: 'test',
     port: 3306,
-    debug: true,
+    debug: false,
     ssl: false,
   });
 
