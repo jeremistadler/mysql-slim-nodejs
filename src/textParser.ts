@@ -21,6 +21,7 @@ import {
   MYSQL_TYPE_TINY,
   MYSQL_TYPE_VAR_STRING,
   MYSQL_TYPE_VARCHAR,
+  MYSQL_TYPE_NULL,
 } from './typeConstants';
 
 export interface FieldInfo {
@@ -62,14 +63,16 @@ export function parseRow(fields: FieldInfo[], packet: Packet): ParsedRowType {
 /** @ignore */
 function convertType(field: FieldInfo, val: string): any {
   const { fieldType, fieldLen } = field;
+
   switch (fieldType) {
+    case MYSQL_TYPE_NULL:
+      return null;
     case MYSQL_TYPE_DECIMAL:
+    case MYSQL_TYPE_NEWDECIMAL: // We might loose some precision in this case
     case MYSQL_TYPE_DOUBLE:
     case MYSQL_TYPE_FLOAT:
     case MYSQL_TYPE_DATETIME2:
       return parseFloat(val);
-    case MYSQL_TYPE_NEWDECIMAL:
-      return val; // #42 MySQL's decimal type cannot be accurately represented by the Number.
     case MYSQL_TYPE_TINY:
     case MYSQL_TYPE_SHORT:
     case MYSQL_TYPE_LONG:
