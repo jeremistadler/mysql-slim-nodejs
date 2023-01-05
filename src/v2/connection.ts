@@ -346,7 +346,7 @@ export function handleFatalError(conn: Connection, error: MysqlError) {
   conn.queuedCommands.forEach((command) => {
     if (command instanceof QueryCommand)
       command.onPacketError(
-        new MysqlError('', 'An earlier command threw an error', true)
+        new MysqlError('An earlier command threw an error', 'PREV_ERROR', true)
       );
   });
   conn.queuedCommands = [];

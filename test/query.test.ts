@@ -1,3 +1,4 @@
+import { randomBytes } from 'crypto';
 import { createTestConnection } from './createTestConnection';
 
 describe('Queries', () => {
@@ -107,6 +108,16 @@ describe('Queries', () => {
         t2: 1,
         t3: -100000,
         t4: 0,
+      },
+    ]);
+  });
+
+  it('Select large string', async () => {
+    const largeString = randomBytes(16777215).toString('hex');
+    const result = await (await conn).query(`SELECT '${largeString}' AS t1`);
+    expect(result).toEqual([
+      {
+        t1: largeString,
       },
     ]);
   });
