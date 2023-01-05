@@ -4,10 +4,10 @@ it('Test regression 82', async () => {
   const conn = await createTestConnection();
 
   const config = {
-    table1: 'test82t1',
-    table2: 'test82t2',
-    view1: 'view82v1',
-    view2: 'view82v2',
+    table1: 'test.test82t1',
+    table2: 'test.test82t2',
+    view1: 'test.view82v1',
+    view2: 'test.view82v2',
   };
 
   await conn.execute(`drop table if exists ${config.table1}`);

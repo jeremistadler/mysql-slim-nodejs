@@ -1,61 +1,45 @@
-import { createMysqlConnection } from '../src/v2/connection';
+import { createTestConnection } from './createTestConnection';
 
 describe('Queries', () => {
-  const conn = createMysqlConnection({
-    host: '127.0.0.1',
-    user: 'root',
-    password: '',
-    database: 'test',
-    port: 3306,
-    debug: false,
-    ssl: false,
-  });
+  const conn = createTestConnection();
 
   it('Select 1', async () => {
-    await conn.connect();
-    const result = await conn.query('SELECT 1');
+    const result = await (await conn).query('SELECT 1');
     expect(result).toEqual([{ '1': 1 }]);
   });
 
   it('Select Hello', async () => {
-    await conn.connect();
-    const result = await conn.query('SELECT "Hello"');
+    const result = await (await conn).query('SELECT "Hello"');
     expect(result).toEqual([{ Hello: 'Hello' }]);
   });
 
   it('Select Now', async () => {
-    await conn.connect();
-    const result = await conn.query('SELECT NOW() AS now');
+    const result = await (await conn).query('SELECT NOW() AS now');
     expect(result).toHaveLength(1);
     expect(typeof result[0].now).toBe('object');
     expect(typeof result[0].now).not.toBeNull();
   });
 
   it('Select roundtrip datetime', async () => {
-    await conn.connect();
     const now = new Date();
-    const result = await conn.query(
-      'SELECT FROM_UNIXTIME(' + now.getTime() + ' / 1000) AS now'
-    );
+    const result = await (
+      await conn
+    ).query('SELECT FROM_UNIXTIME(' + now.getTime() + ' / 1000) AS now');
     expect(result[0].now).toEqual(now);
   });
 
   it('Select random ints one at a time', async () => {
-    await conn.connect();
-
     for (let i = 0; i < 100; i++) {
       const int = randomIntFromInterval(
         Number.MIN_SAFE_INTEGER,
         Number.MAX_SAFE_INTEGER
       );
-      const result = await conn.query('SELECT ' + int + ' AS t1');
+      const result = await (await conn).query('SELECT ' + int + ' AS t1');
       expect(result[0].t1).toEqual(int);
     }
   });
 
   it('Select random ints in one query', async () => {
-    await conn.connect();
-
     const numbers: number[] = [];
 
     for (let i = 0; i < 100; i++) {
@@ -66,7 +50,9 @@ describe('Queries', () => {
       numbers.push(int);
     }
 
-    const result = await conn.query(
+    const result = await (
+      await conn
+    ).query(
       'SELECT ' +
         numbers[0] +
         ' AS t1 ' +
@@ -79,8 +65,6 @@ describe('Queries', () => {
   });
 
   it('Select random doubles in one query', async () => {
-    await conn.connect();
-
     const numbers: number[] = [];
 
     for (let i = 0; i < 1; i++) {
@@ -88,7 +72,9 @@ describe('Queries', () => {
       numbers.push(int);
     }
 
-    const result = await conn.query(
+    const result = await (
+      await conn
+    ).query(
       'SELECT ' +
         numbers[0] +
         ' AS t1 ' +
@@ -104,9 +90,9 @@ describe('Queries', () => {
   });
 
   it('Select different data types', async () => {
-    await conn.connect();
-
-    const result = await conn.query(
+    const result = await (
+      await conn
+    ).query(
       `-- Test Comment
       SELECT 
        NULL AS t1, 
@@ -125,7 +111,7 @@ describe('Queries', () => {
     ]);
   });
 
-  afterAll(conn.close);
+  afterAll(async () => (await conn).close());
 });
 
 function randomIntFromInterval(min: number, max: number) {
