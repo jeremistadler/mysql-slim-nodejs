@@ -1,8 +1,3 @@
-import process from 'process';
-import Timers from 'timers';
-
-const Readable = require('stream').Readable;
-
 import { Command, CommandHandlePacketFn } from './command';
 import { Packet } from '../packet';
 import { Connection, handleFatalError, writePacket } from '../v2/connection';
@@ -126,7 +121,6 @@ export class QueryCommand implements Command {
       //   this.options,
       //   connection.config
       // ))(fields);
-
       return this.fieldsEOF;
     }
 
@@ -217,10 +211,5 @@ export class QueryCommand implements Command {
     this._rows[this._resultIndex].push(row);
 
     return this.row;
-  }
-
-  private infileOk(packet: Packet, connection: Connection) {
-    const rs = new ResultSetHeaderPacket(packet, connection);
-    return this.doneInsert(rs);
   }
 }
