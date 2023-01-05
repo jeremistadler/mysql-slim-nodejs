@@ -13,9 +13,4 @@ export class AuthSwitchResponsePacket {
     packet.writeBuffer(this.data);
     return packet;
   }
-
-  static fromPacket(packet: Packet) {
-    const data = packet.readBuffer();
-    return new AuthSwitchResponsePacket(data);
-  }
 }
