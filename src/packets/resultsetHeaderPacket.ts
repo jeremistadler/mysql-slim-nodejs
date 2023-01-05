@@ -108,20 +108,4 @@ export class ResultSetHeaderPacket {
       this.changedRows = parseInt(m[1], 10);
     }
   }
-
-  // TODO: should be consistent instance member, but it's just easier here to have just function
-  static toPacket(fieldCount: number, insertId: number) {
-    let length = 4 + Packet.lengthCodedNumberLength(fieldCount);
-    if (typeof insertId !== 'undefined') {
-      length += Packet.lengthCodedNumberLength(insertId);
-    }
-    const buffer = Buffer.allocUnsafe(length);
-    const packet = new Packet(0, buffer, 0, length);
-    packet.offset = 4;
-    packet.writeLengthCodedNumber(fieldCount);
-    if (typeof insertId !== 'undefined') {
-      packet.writeLengthCodedNumber(insertId);
-    }
-    return packet;
-  }
 }

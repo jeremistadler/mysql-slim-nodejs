@@ -42,32 +42,6 @@ export class HandshakePacket {
     });
   }
 
-  toPacket(sequenceId: number) {
-    const length = 68 + Buffer.byteLength(this.serverVersion, 'utf8');
-    const buffer = Buffer.alloc(length + 4, 0); // zero fill, 10 bytes filler later needs to contain zeros
-    const packet = new Packet(sequenceId, buffer, 0, length + 4);
-    packet.offset = 4;
-    packet.writeInt8(this.protocolVersion);
-    packet.writeString(this.serverVersion, 'cesu8');
-    packet.writeInt8(0);
-    packet.writeInt32(this.connectionId);
-    packet.writeBuffer(this.authPluginData1);
-    packet.writeInt8(0);
-    const capabilityFlagsBuffer = Buffer.allocUnsafe(4);
-    capabilityFlagsBuffer.writeUInt32LE(this.capabilityFlags, 0);
-    packet.writeBuffer(capabilityFlagsBuffer.slice(0, 2));
-    packet.writeInt8(this.characterSet);
-    packet.writeInt16(this.statusFlags);
-    packet.writeBuffer(capabilityFlagsBuffer.slice(2, 4));
-    packet.writeInt8(21); // authPluginDataLength
-    packet.skip(10);
-    packet.writeBuffer(this.authPluginData2);
-    packet.writeInt8(0);
-    packet.writeString('mysql_native_password', 'latin1');
-    packet.writeInt8(0);
-    return packet;
-  }
-
   static fromPacket(packet: Packet) {
     const args: Record<string, number | string | Buffer> = {};
     args.protocolVersion = packet.readInt8();

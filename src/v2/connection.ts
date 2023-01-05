@@ -129,7 +129,12 @@ function onSocketConnected(conn: Connection) {
       conn.connectTimeout = null;
     }
     conn.ongoingCommand = new ClientHandshake(
-      mergeFlags(getDefaultClientFlags())
+      flagListToInt(
+        getDefaultClientFlags({
+          connectAttributes: true,
+          multipleStatements: true,
+        })
+      )
     );
   };
 }
@@ -160,7 +165,7 @@ function getSocketState(conn: Connection) {
   return 'connected';
 }
 
-function mergeFlags(flagStrings: (keyof typeof ALL_CLIENT_CONSTANTS)[]) {
+function flagListToInt(flagStrings: (keyof typeof ALL_CLIENT_CONSTANTS)[]) {
   let flags = 0x0;
 
   for (const item of flagStrings) {
@@ -170,7 +175,7 @@ function mergeFlags(flagStrings: (keyof typeof ALL_CLIENT_CONSTANTS)[]) {
   return flags;
 }
 
-function getDefaultClientFlags(options?: {
+function getDefaultClientFlags(options: {
   multipleStatements: boolean;
   connectAttributes: boolean;
 }) {
@@ -191,13 +196,13 @@ function getDefaultClientFlags(options?: {
     'TRANSACTIONS',
     'SESSION_TRACK',
   ];
-  if (options && options.multipleStatements) {
+  if (options.multipleStatements) {
     defaultFlags.push('MULTI_STATEMENTS');
   }
   defaultFlags.push('PLUGIN_AUTH');
   defaultFlags.push('PLUGIN_AUTH_LENENC_CLIENT_DATA');
 
-  if (options && options.connectAttributes) {
+  if (options.connectAttributes) {
     defaultFlags.push('CONNECT_ATTRS');
   }
   return defaultFlags;
