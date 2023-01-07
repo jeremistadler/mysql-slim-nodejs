@@ -1,0 +1,20 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`InsertAndQuery products 1`] = `
+Array [
+  Object {
+    "created_at": 2023-01-07T14:15:37.000Z,
+    "description": "Hello World! åäö",
+    "description_long": "Hello World! åäö",
+    "description_short": "Hello World! åäö",
+    "image": "abc",
+    "myset": "Dancing",
+    "popularity": 1.234,
+    "price": 1.234,
+    "product_id": 1,
+    "product_item": "Hello World! åäö",
+    "size": "medium",
+    "use_by": 2023-01-07T00:00:00.000Z,
+  },
+]
+`;
