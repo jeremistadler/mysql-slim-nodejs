@@ -2,7 +2,7 @@
 
 import { createHash, publicEncrypt } from 'node:crypto';
 import { xor, xorRotating } from '../auth41';
-import { Connection } from '../v2/connection';
+import { Conn } from '../v2/connection';
 
 const PLUGIN_NAME = 'caching_sha2_password';
 
@@ -39,7 +39,7 @@ function encrypt(password: string, scramble: Buffer, key: Buffer) {
   return publicEncrypt(key, stage1);
 }
 
-export function caching_sha2_password(connection: Connection) {
+export function caching_sha2_password(connection: Conn) {
   let state = 0;
   let scramble: Buffer | null = null;
 

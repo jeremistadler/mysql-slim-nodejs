@@ -6,7 +6,7 @@ import { HandshakePacket } from '../packets/handshake';
 import { HandshakeResponse } from '../packets/handshakeResponse';
 import {
   authorizedConnection,
-  Connection,
+  Conn,
   handleFatalError,
   writePacket,
 } from '../v2/connection';
@@ -42,10 +42,13 @@ export class ClientHandshake implements Command {
   constructor(clientFlags: number) {
     this.handshake = null;
     this.clientFlags = clientFlags;
-    this.handlePacket = this.handleHandshakeInitPacket;
+    this.handlePacket = {
+      name: 'handshakeInit',
+      fn: this.handleHandshakeInitPacket,
+    };
   }
 
-  sendCredentials(conn: Connection, handshake: HandshakePacket) {
+  sendCredentials(conn: Conn, handshake: HandshakePacket) {
     if (conn.config.debug) {
       // eslint-disable-next-line
       console.log(
@@ -74,7 +77,7 @@ export class ClientHandshake implements Command {
 
   handleHandshakeInitPacket(
     helloPacket: Packet,
-    connection: Connection
+    connection: Conn
   ): CommandHandlePacketFn {
     this.handshake = HandshakePacket.fromPacket(helloPacket);
 
@@ -93,10 +96,13 @@ export class ClientHandshake implements Command {
 
     this.sendCredentials(connection, this.handshake);
 
-    return this.handleHandshakeResult;
+    return { name: 'handshakeResult', fn: this.handleHandshakeResult };
   }
 
-  handleHandshakeResult(packet: Packet, connection: Connection) {
+  handleHandshakeResult(
+    packet: Packet,
+    connection: Conn
+  ): CommandHandlePacketFn {
     const marker = packet.peekByte();
     // packet can be OK_Packet, ERR_Packet, AuthSwitchRequest, AuthNextFactor
     // or AuthMoreData
@@ -120,7 +126,7 @@ export class ClientHandshake implements Command {
           // so, we can use it directly
           authSwitchRequest(packet, connection, this);
         }
-        return ClientHandshake.prototype.handleHandshakeResult;
+        return { name: 'handshakeNextResult', fn: this.handleHandshakeResult };
       } catch (err: any) {
         const mysqlError = new MysqlError(
           err.message,

@@ -1,6 +1,6 @@
 import { Command, CommandHandlePacketFn } from './command';
 import { Packet } from '../packet';
-import { Connection, handleFatalError, writePacket } from '../v2/connection';
+import { Conn, handleFatalError, writePacket } from '../v2/connection';
 import { QueryPacket } from '../packets/queryPacket';
 import { ResultSetHeaderPacket } from '../packets/resultsetHeaderPacket';
 import { ColumnDefinitionPacket } from '../packets/ColumnDefinitionPacket';
@@ -46,7 +46,7 @@ export class QueryCommand implements Command {
     // this._streamFactory = options.infileStreamFactory;
     // this._connection = null;
 
-    this.handlePacket = this.start;
+    this.handlePacket = { name: 'start', fn: this.handleStart };
 
     this.promise = new Promise<void>((resolve, reject) => {
       this.completeCallback = resolve;
@@ -58,7 +58,10 @@ export class QueryCommand implements Command {
     this.errorCallback(err);
   }
 
-  private start(_packet: Packet, connection: Connection) {
+  private handleStart(
+    _packet: Packet,
+    connection: Conn
+  ): CommandHandlePacketFn {
     if (connection.config.debug) {
       // eslint-disable-next-line
       console.log('        Sending query command: %s', this.sql);
@@ -67,10 +70,13 @@ export class QueryCommand implements Command {
     const cmdPacket = new QueryPacket(this.sql);
     writePacket(connection, cmdPacket.toPacket());
 
-    return this.resultsetHeader;
+    return { name: 'resultsetHeader', fn: this.resultsetHeader };
   }
 
-  private resultsetHeader(packet: Packet, connection: Connection) {
+  private resultsetHeader(
+    packet: Packet,
+    connection: Conn
+  ): CommandHandlePacketFn {
     const rs = new ResultSetHeaderPacket(packet, connection);
     this._fieldCount = rs.fieldCount;
 
@@ -89,10 +95,10 @@ export class QueryCommand implements Command {
     this._rows.push([]);
     this._fields.push([]);
 
-    return this.readField;
+    return { name: 'readFields', fn: this.readField };
   }
 
-  private readField(packet: Packet, connection: Connection) {
+  private readField(packet: Packet, connection: Conn): CommandHandlePacketFn {
     this._receivedFieldsCount++;
     // Often there is much more data in the column definition than in the row itself
     // If you set manually _fields[0] to array of ColumnDefinition's (from previous call)
@@ -121,10 +127,10 @@ export class QueryCommand implements Command {
       //   this.options,
       //   connection.config
       // ))(fields);
-      return this.fieldsEOF;
+      return { name: 'eof', fn: this.fieldsEOF };
     }
 
-    return this.readField;
+    return { name: 'readMoreFields', fn: this.readField };
   }
 
   private done() {
@@ -162,18 +168,18 @@ export class QueryCommand implements Command {
     return null;
   }
 
-  private doneInsert(rs: ResultSetHeaderPacket | null) {
+  private doneInsert(rs: ResultSetHeaderPacket | null): CommandHandlePacketFn {
     this._resultSet = rs;
 
     if (rs != null && rs.serverStatus & SERVER_MORE_RESULTS_EXISTS) {
       this._resultIndex++;
-      return this.resultsetHeader;
+      return { name: 'header', fn: this.resultsetHeader };
     }
 
     return this.done();
   }
 
-  private fieldsEOF(packet: Packet, connection: Connection) {
+  private fieldsEOF(packet: Packet, connection: Conn): CommandHandlePacketFn {
     // check EOF
     if (!packet.isEOF()) {
       handleFatalError(
@@ -182,16 +188,16 @@ export class QueryCommand implements Command {
       );
       return null;
     }
-    return this.row;
+    return { name: 'readRow', fn: this.row };
   }
 
-  private row(packet: Packet, _connection: Connection) {
+  private row(packet: Packet, _connection: Conn): CommandHandlePacketFn {
     if (packet.isEOF()) {
       const status = packet.eofStatusFlags();
       const moreResults = status & SERVER_MORE_RESULTS_EXISTS;
       if (moreResults) {
         this._resultIndex++;
-        return this.resultsetHeader;
+        return { name: 'readNextResultsetHeader', fn: this.resultsetHeader };
       }
       return this.done();
     }
@@ -210,6 +216,6 @@ export class QueryCommand implements Command {
 
     this._rows[this._resultIndex].push(row);
 
-    return this.row;
+    return { name: 'readNextRow', fn: this.row };
   }
 }

@@ -20,7 +20,7 @@ type TcpConnectionProps = Readonly<{
   ssl: boolean;
 }>;
 
-export type Connection = {
+export type Conn = {
   readonly config: TcpConnectionProps;
   readonly parser: PacketParser;
 
@@ -48,8 +48,10 @@ export type Connection = {
   errorCallbacks: ((error: MysqlError) => void)[];
 };
 
+export type Connection = ReturnType<typeof createMysqlConnection>;
+
 export function createMysqlConnection(config: TcpConnectionProps) {
-  const conn: Connection = {
+  const conn: Conn = {
     config,
     parser: new PacketParser(4),
 
@@ -88,7 +90,7 @@ export function createMysqlConnection(config: TcpConnectionProps) {
   }, 5000);
 
   return {
-    connect: createAuthorizedPromise(conn),
+    waitUntilConnected: createAuthorizedPromise(conn),
     close: closeConnection(conn),
 
     query: (sql: string): Promise<ParsedRowType[]> => {
@@ -122,7 +124,7 @@ export function createMysqlConnection(config: TcpConnectionProps) {
   };
 }
 
-function onSocketConnected(conn: Connection) {
+function onSocketConnected(conn: Conn) {
   return () => {
     if (conn.connectTimeout != null) {
       clearTimeout(conn.connectTimeout);
@@ -139,13 +141,13 @@ function onSocketConnected(conn: Connection) {
   };
 }
 
-function onSocketError(conn: Connection) {
+function onSocketError(conn: Conn) {
   return (err: Error) => {
     console.error('onSocketError', err);
   };
 }
 
-function onSocketData(conn: Connection) {
+function onSocketData(conn: Conn) {
   return (data: Buffer) => {
     // if (this.state === 'closed') return;
 
@@ -153,13 +155,13 @@ function onSocketData(conn: Connection) {
   };
 }
 
-function onSocketClosed(conn: Connection) {
+function onSocketClosed(conn: Conn) {
   return () => {
     //console.log('onSocketClosed');
   };
 }
 
-function getSocketState(conn: Connection) {
+function getSocketState(conn: Conn) {
   if (conn.socket.closed) return 'disconnected';
   if (conn.socket.connecting) return 'connecting';
   return 'connected';
@@ -208,7 +210,7 @@ function getDefaultClientFlags(options: {
   return defaultFlags;
 }
 
-function createAuthorizedPromise(conn: Connection) {
+function createAuthorizedPromise(conn: Conn) {
   return (): Promise<void> => {
     if (conn.isClosing)
       return Promise.reject(
@@ -225,7 +227,7 @@ function createAuthorizedPromise(conn: Connection) {
   };
 }
 
-function onReceivedPacket(conn: Connection) {
+function onReceivedPacket(conn: Conn) {
   return (packet: Packet) => {
     if (conn.sequenceId !== packet.sequenceId) {
       const err = new Error(
@@ -242,11 +244,9 @@ function onReceivedPacket(conn: Connection) {
         : '(no command)';
 
       console.log(
-        `Received ${commandName}(${[
-          packet.sequenceId,
-          packet.type(),
-          packet.length(),
-        ].join(',')})`
+        `Received ${commandName} ${
+          conn.ongoingCommand?.handlePacket?.name || ''
+        } (${[packet.sequenceId, packet.type(), packet.length()].join(',')})`
       );
     }
 
@@ -288,10 +288,12 @@ function onReceivedPacket(conn: Connection) {
       return;
     }
 
-    conn.ongoingCommand.handlePacket = conn.ongoingCommand!.handlePacket!(
-      packet,
-      conn
-    );
+    conn.ongoingCommand.handlePacket =
+      conn.ongoingCommand!.handlePacket!.fn.call(
+        conn.ongoingCommand,
+        packet,
+        conn
+      );
 
     if (conn.ongoingCommand.handlePacket === null) {
       conn.ongoingCommand = null;
@@ -301,22 +303,24 @@ function onReceivedPacket(conn: Connection) {
   };
 }
 
-function unqueueNextCommand(conn: Connection) {
+function unqueueNextCommand(conn: Conn) {
   if (conn.queuedCommands.length > 0) {
     conn.ongoingCommand = conn.queuedCommands.shift()!;
-    conn.ongoingCommand.handlePacket = conn.ongoingCommand!.handlePacket!(
-      new Packet(0, Buffer.alloc(0), 0, 0),
-      conn
-    );
+    conn.ongoingCommand.handlePacket =
+      conn.ongoingCommand!.handlePacket!.fn.call(
+        conn.ongoingCommand,
+        new Packet(0, Buffer.alloc(0), 0, 0),
+        conn
+      );
   }
 }
 
-export function bumpSequenceId(conn: Connection, numPackets: number) {
+export function bumpSequenceId(conn: Conn, numPackets: number) {
   conn.sequenceId += numPackets;
   conn.sequenceId %= 256;
 }
 
-function closeConnection(conn: Connection) {
+function closeConnection(conn: Conn) {
   return () => {
     if (conn.config.debug) console.log('Closing connection...');
     conn.isClosing = true;
@@ -329,12 +333,12 @@ function closeConnection(conn: Connection) {
   };
 }
 
-export function authorizedConnection(conn: Connection) {
+export function authorizedConnection(conn: Conn) {
   conn.authorized = true;
   conn.authorizedResolvers.forEach((resolver) => resolver());
 }
 
-function writeToSocket(conn: Connection, buffer: Buffer) {
+function writeToSocket(conn: Conn, buffer: Buffer) {
   conn.socket.write(buffer, (err) => {
     if (err) {
       handleFatalError(conn, err as MysqlError);
@@ -342,7 +346,7 @@ function writeToSocket(conn: Connection, buffer: Buffer) {
   });
 }
 
-export function handleFatalError(conn: Connection, error: MysqlError) {
+export function handleFatalError(conn: Conn, error: MysqlError) {
   conn.isClosing = true;
   conn.fatalError = error;
   closeConnection(conn)();
@@ -357,18 +361,16 @@ export function handleFatalError(conn: Connection, error: MysqlError) {
   conn.queuedCommands = [];
 }
 
-export function writePacket(conn: Connection, packet: Packet) {
+export function writePacket(conn: Conn, packet: Packet) {
   const MAX_PACKET_LENGTH = 16777215;
   const length = packet.length();
   let chunk, offset, header;
 
   if (conn.config.debug) {
     console.log(
-      `Sending ${conn.ongoingCommand?._commandName} (${[
-        conn.sequenceId,
-        packet._name,
-        packet.length(),
-      ].join(',')})`
+      `Sending ${conn.ongoingCommand?._commandName} ${
+        conn.ongoingCommand?.handlePacket?.name || ''
+      } (${[conn.sequenceId, packet._name, packet.length()].join(',')})`
     );
   }
 

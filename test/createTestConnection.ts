@@ -11,7 +11,7 @@ export async function createTestConnection() {
     ssl: false,
   });
 
-  await conn.connect();
+  await conn.waitUntilConnected();
 
   return conn;
 }

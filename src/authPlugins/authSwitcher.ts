@@ -4,19 +4,19 @@ import { Packet } from '../packet';
 import { AuthSwitchRequestMoreDataPacket } from '../packets/authSwitchRequestMoreData';
 import { AuthSwitchRequestPacket } from '../packets/authSwitchRequestPacket';
 import { AuthSwitchResponsePacket } from '../packets/authSwitchResponsePacket';
-import { Connection, handleFatalError, writePacket } from '../v2/connection';
+import { Conn, handleFatalError, writePacket } from '../v2/connection';
 import { caching_sha2_password } from './caching_sha2_password';
 
 const standardAuthPlugins: Record<
   string,
-  (connection: Connection) => (data: Buffer) => Buffer | null
+  (connection: Conn) => (data: Buffer) => Buffer | null
 > = {
   caching_sha2_password,
 };
 
 export function authSwitchRequest(
   packet: Packet,
-  connection: Connection,
+  connection: Conn,
   command: Command
 ) {
   const { pluginName, pluginData } = AuthSwitchRequestPacket.fromPacket(packet);
@@ -43,7 +43,7 @@ export function authSwitchRequest(
 
 export function authSwitchRequestMoreData(
   packet: Packet,
-  connection: Connection,
+  connection: Conn,
   command: Command
 ) {
   const { data } = AuthSwitchRequestMoreDataPacket.fromPacket(packet);
@@ -65,7 +65,7 @@ export function authSwitchRequestMoreData(
     });
 }
 
-function handleError(err: any, connection: Connection) {
+function handleError(err: any, connection: Conn) {
   const mysqlError = new MysqlError(
     err.message,
     'AUTH_SWITCH_PLUGIN_ERROR',

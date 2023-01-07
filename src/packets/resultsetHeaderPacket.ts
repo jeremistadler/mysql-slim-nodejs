@@ -3,7 +3,7 @@
 
 import { ALL_CLIENT_CONSTANTS } from '../constants/clientConstants';
 import { Packet } from '../packet';
-import { Connection } from '../v2/connection';
+import { Conn } from '../v2/connection';
 
 const SERVER_SESSION_STATE_CHANGED = 0x4000;
 const SESSION_CHANGE_SYSTEM_VARIABLES = 0;
@@ -24,7 +24,7 @@ export class ResultSetHeaderPacket {
   } | null = null;
   changedRows: number = 0;
 
-  constructor(packet: Packet, connection: Connection) {
+  constructor(packet: Packet, connection: Conn) {
     const encoding = connection.serverEncoding;
     const flags = connection.serverCapabilityFlags;
 

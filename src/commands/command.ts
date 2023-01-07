@@ -1,9 +1,10 @@
 import { Packet } from '../packet';
-import { Connection } from '../v2/connection';
+import { Conn } from '../v2/connection';
 
-export type CommandHandlePacketFn =
-  | null
-  | ((packet: Packet, connection: Connection) => CommandHandlePacketFn);
+export type CommandHandlePacketFn = null | {
+  name: string;
+  fn: (packet: Packet, connection: Conn) => CommandHandlePacketFn;
+};
 
 export type Command = {
   handlePacket: CommandHandlePacketFn;
