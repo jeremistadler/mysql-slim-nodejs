@@ -1,10 +1,11 @@
 import { Command } from '../commands/command'
+import { handleFatalError, writePacket } from '../connectionActions'
+import { Conn } from '../ConnectionType'
 import { MysqlError } from '../MysqlError'
 import { Packet } from '../packet'
 import { AuthSwitchRequestMoreDataPacket } from '../packets/authSwitchRequestMoreData'
 import { AuthSwitchRequestPacket } from '../packets/authSwitchRequestPacket'
 import { AuthSwitchResponsePacket } from '../packets/authSwitchResponsePacket'
-import { Conn, handleFatalError, writePacket } from '../v2/connection'
 import { caching_sha2_password } from './caching_sha2_password'
 
 const standardAuthPlugins: Record<

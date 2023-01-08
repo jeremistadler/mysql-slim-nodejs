@@ -2,7 +2,7 @@
 
 import { createHash, publicEncrypt } from 'node:crypto'
 import { xor, xorRotating } from '../auth41'
-import { Conn } from '../v2/connection'
+import { Conn } from '../ConnectionType'
 
 const PLUGIN_NAME = 'caching_sha2_password'
 

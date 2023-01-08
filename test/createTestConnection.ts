@@ -1,4 +1,4 @@
-import { createMysqlConnection } from '../src/v2/connection'
+import { createMysqlConnection } from '../src/createMysqlConnection'
 
 export async function createTestConnection() {
   const conn = createMysqlConnection({

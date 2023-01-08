@@ -1,5 +1,5 @@
+import { Conn } from '../ConnectionType'
 import { Packet } from '../packet'
-import { Conn } from '../v2/connection'
 
 export type CommandHandlePacketFn = null | {
   name: string

@@ -1,155 +1,17 @@
-import { connect, Socket } from 'node:net'
-import { ClientHandshake } from '../commands/ClientHandshakeCommand'
-import { Command } from '../commands/command'
-import { QueryCommand } from '../commands/QueryCommand'
-import { ALL_CLIENT_CONSTANTS } from '../constants/clientConstants'
-import { MysqlError } from '../MysqlError'
-import { Packet } from '../packet'
-import { PacketParser } from '../PacketParser'
-import { ErrorPacket } from '../packets/errorPacket'
-import { ResultSetHeaderPacket } from '../packets/resultsetHeaderPacket'
-import { ParsedRowType } from '../textParser'
+import { QueryCommand } from './commands/QueryCommand'
+import { Conn } from './ConnectionType'
+import { ALL_CLIENT_CONSTANTS } from './constants/clientConstants'
+import { MysqlError } from './MysqlError'
+import { Packet } from './packet'
+import { ErrorPacket } from './packets/errorPacket'
 
-type TcpConnectionProps = Readonly<{
-  host: string
-  user: string
-  password: string
-  database: string
-  port: number
-  debug: boolean
-  ssl: boolean
-
-  connectTimeout?: number
-}>
-
-export type Conn = {
-  readonly config: TcpConnectionProps
-  readonly parser: PacketParser
-
-  socket: Socket
-  isClosing: boolean
-
-  connectTimeout: NodeJS.Timeout | null
-
-  sequenceId: number
-
-  ongoingCommand: null | Command
-  queuedCommands: Command[]
-
-  clientEncoding: string
-  connectionId: number
-  serverEncoding: string
-  serverCapabilityFlags: number
-
-  fatalError: MysqlError | null
-
-  authPlugin: null | ((data: Buffer) => Buffer | null)
-
-  authorized: boolean
-  authorizedResolvers: (() => void)[]
-  errorCallbacks: ((error: MysqlError) => void)[]
-}
-
-export type Connection = ReturnType<typeof createMysqlConnection>
-
-export function createMysqlConnection(config: TcpConnectionProps) {
-  const conn: Conn = {
-    config,
-    parser: new PacketParser(4),
-
-    socket: connect(config.port, config.host),
-
-    ongoingCommand: null,
-    clientEncoding: 'utf8',
-    serverEncoding: 'utf8',
-
-    connectionId: 0,
-    connectTimeout: null,
-    isClosing: false,
-    queuedCommands: [],
-    sequenceId: 0,
-    serverCapabilityFlags: 0,
-
-    fatalError: null,
-    authPlugin: null,
-
-    authorized: false,
-    authorizedResolvers: [],
-    errorCallbacks: [],
-  }
-
-  conn.parser.onPacket = onReceivedPacket(conn)
-
-  conn.socket.on('connect', onSocketConnected(conn))
-  conn.socket.on('error', onSocketError(conn))
-  conn.socket.on('data', onSocketData(conn))
-  conn.socket.on('close', onSocketClosed(conn))
-
-  conn.connectTimeout = setTimeout(() => {
-    console.log('Connection timeout...')
-    conn.isClosing = true
-    conn.socket.end()
-  }, config.connectTimeout ?? 5000)
-
-  return {
-    waitUntilConnected: createAuthorizedPromise(conn),
-    close: closeConnection(conn),
-
-    query: (sql: string): Promise<ParsedRowType[]> => {
-      const command = new QueryCommand({ sql, values: [] })
-      conn.queuedCommands.push(command)
-      if (conn.ongoingCommand === null) unqueueNextCommand(conn)
-
-      return command.promise.then(() => {
-        if (command._rows.length === 0)
-          throw new Error('No resultsets, maybe use execute?')
-
-        if (command._rows.length > 1)
-          throw new Error('Too many resultsets, maybe use queryMultiple?')
-
-        return command._rows[0]
-      })
-    },
-
-    execute: (sql: string): Promise<ResultSetHeaderPacket | null> => {
-      const command = new QueryCommand({ sql, values: [] })
-      conn.queuedCommands.push(command)
-      if (conn.ongoingCommand === null) unqueueNextCommand(conn)
-
-      return command.promise.then(() => {
-        if (command._rows.length > 0)
-          throw new Error('Too many resultsets, maybe use query?')
-
-        return command._resultSet
-      })
-    },
-  }
-}
-
-function onSocketConnected(conn: Conn) {
-  return () => {
-    if (conn.connectTimeout != null) {
-      clearTimeout(conn.connectTimeout)
-      conn.connectTimeout = null
-    }
-    conn.ongoingCommand = new ClientHandshake(
-      flagListToInt(
-        getDefaultClientFlags({
-          connectAttributes: true,
-          multipleStatements: true,
-        })
-      )
-    )
-  }
-}
-
-function onSocketError(conn: Conn) {
+export function onSocketError(conn: Conn) {
   return (err: Error) => {
     console.error('onSocketError', err)
   }
 }
 
-function onSocketData(conn: Conn) {
+export function onSocketData(conn: Conn) {
   return (data: Buffer) => {
     // if (this.state === 'closed') return;
 
@@ -157,7 +19,7 @@ function onSocketData(conn: Conn) {
   }
 }
 
-function onSocketClosed(conn: Conn) {
+export function onSocketClosed(conn: Conn) {
   return () => {
     //console.log('onSocketClosed');
   }
@@ -169,7 +31,9 @@ function getSocketState(conn: Conn) {
   return 'connected'
 }
 
-function flagListToInt(flagStrings: (keyof typeof ALL_CLIENT_CONSTANTS)[]) {
+export function flagListToInt(
+  flagStrings: (keyof typeof ALL_CLIENT_CONSTANTS)[]
+) {
   let flags = 0x0
 
   for (const item of flagStrings) {
@@ -179,7 +43,7 @@ function flagListToInt(flagStrings: (keyof typeof ALL_CLIENT_CONSTANTS)[]) {
   return flags
 }
 
-function getDefaultClientFlags(options: {
+export function getDefaultClientFlags(options: {
   multipleStatements: boolean
   connectAttributes: boolean
 }) {
@@ -212,7 +76,7 @@ function getDefaultClientFlags(options: {
   return defaultFlags
 }
 
-function createAuthorizedPromise(conn: Conn) {
+export function createAuthorizedPromise(conn: Conn) {
   return (): Promise<void> => {
     if (conn.isClosing)
       return Promise.reject(
@@ -229,7 +93,7 @@ function createAuthorizedPromise(conn: Conn) {
   }
 }
 
-function onReceivedPacket(conn: Conn) {
+export function onReceivedPacket(conn: Conn) {
   return (packet: Packet) => {
     if (conn.sequenceId !== packet.sequenceId) {
       const err = new Error(
@@ -305,7 +169,7 @@ function onReceivedPacket(conn: Conn) {
   }
 }
 
-function unqueueNextCommand(conn: Conn) {
+export function unqueueNextCommand(conn: Conn) {
   if (conn.queuedCommands.length > 0) {
     conn.ongoingCommand = conn.queuedCommands.shift()!
     conn.ongoingCommand.handlePacket =
@@ -322,7 +186,7 @@ export function bumpSequenceId(conn: Conn, numPackets: number) {
   conn.sequenceId %= 256
 }
 
-function closeConnection(conn: Conn) {
+export function closeConnection(conn: Conn) {
   return () => {
     if (conn.config.debug) console.log('Closing connection...')
     conn.isClosing = true

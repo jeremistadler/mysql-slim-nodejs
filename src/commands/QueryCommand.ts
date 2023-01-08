@@ -1,10 +1,11 @@
+import { handleFatalError, writePacket } from '../connectionActions'
+import { Conn } from '../ConnectionType'
 import { MysqlError } from '../MysqlError'
 import { Packet } from '../packet'
 import { ColumnDefinitionPacket } from '../packets/ColumnDefinitionPacket'
 import { QueryPacket } from '../packets/queryPacket'
 import { ResultSetHeaderPacket } from '../packets/resultsetHeaderPacket'
 import { ParsedRowType, parseRow } from '../textParser'
-import { Conn, handleFatalError, writePacket } from '../v2/connection'
 import { Command, CommandHandlePacketFn } from './command'
 
 const SERVER_MORE_RESULTS_EXISTS = 8

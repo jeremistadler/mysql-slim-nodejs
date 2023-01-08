@@ -3,17 +3,17 @@ import {
   authSwitchRequestMoreData,
 } from '../authPlugins/authSwitcher'
 import { CharsetToEncoding } from '../charset_encodings'
+import {
+  authorizedConnection,
+  handleFatalError,
+  writePacket,
+} from '../connectionActions'
+import { Conn } from '../ConnectionType'
 import { ALL_CLIENT_CONSTANTS } from '../constants/clientConstants'
 import { MysqlError } from '../MysqlError'
 import { Packet } from '../packet'
 import { HandshakePacket } from '../packets/handshake'
 import { HandshakeResponse } from '../packets/handshakeResponse'
-import {
-  authorizedConnection,
-  Conn,
-  handleFatalError,
-  writePacket,
-} from '../v2/connection'
 import { Command, CommandHandlePacketFn } from './command'
 
 // import Packets from '../packets/index';

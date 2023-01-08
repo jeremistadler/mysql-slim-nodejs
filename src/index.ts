@@ -1,1 +1,2 @@
-export { Connection, createMysqlConnection } from './v2/connection'
+export { TcpConnectionProps } from './ConnectionType'
+export { Connection, createMysqlConnection } from './createMysqlConnection'

@@ -1,9 +1,9 @@
 // TODO: rename to OK packet
 // https://dev.mysql.com/doc/internals/en/packet-OK_Packet.html
 
+import { Conn } from '../ConnectionType'
 import { ALL_CLIENT_CONSTANTS } from '../constants/clientConstants'
 import { Packet } from '../packet'
-import { Conn } from '../v2/connection'
 
 const SERVER_SESSION_STATE_CHANGED = 0x4000
 const SESSION_CHANGE_SYSTEM_VARIABLES = 0
