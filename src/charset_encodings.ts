@@ -311,4 +311,4 @@ export const CharsetToEncoding = [
   'utf8',
   'utf8',
   'utf8',
-];
+]

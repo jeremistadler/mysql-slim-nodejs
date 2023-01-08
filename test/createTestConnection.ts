@@ -1,4 +1,4 @@
-import { createMysqlConnection } from '../src/v2/connection';
+import { createMysqlConnection } from '../src/v2/connection'
 
 export async function createTestConnection() {
   const conn = createMysqlConnection({
@@ -9,9 +9,9 @@ export async function createTestConnection() {
     port: 3306,
     debug: false,
     ssl: false,
-  });
+  })
 
-  await conn.waitUntilConnected();
+  await conn.waitUntilConnected()
 
-  return conn;
+  return conn
 }

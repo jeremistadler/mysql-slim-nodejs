@@ -1,4 +1,4 @@
-import { createMysqlConnection } from '../src/v2/connection';
+import { createMysqlConnection } from '../src/v2/connection'
 
 describe('Queries', () => {
   it('Select 1', async () => {
@@ -10,10 +10,10 @@ describe('Queries', () => {
       port: 3306,
       debug: false,
       ssl: false,
-    });
+    })
 
-    await conn.connect();
+    await conn.waitUntilConnected()
 
-    await conn.close();
-  });
-});
+    await conn.close()
+  })
+})

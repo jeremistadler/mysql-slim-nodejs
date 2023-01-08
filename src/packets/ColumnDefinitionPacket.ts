@@ -1,5 +1,5 @@
-import { Packet } from '../packet';
-import { decodeString } from '../stringParser';
+import { Packet } from '../packet'
+import { decodeString } from '../stringParser'
 
 // creating JS string is relatively expensive (compared to
 // reading few bytes from buffer) because all string properties
@@ -15,99 +15,99 @@ import { decodeString } from '../stringParser';
 //
 
 export interface FieldInfo {
-  catalog: string;
-  schema: string;
-  table: string;
-  originTable: string;
-  name: string;
-  originName: string;
-  encoding: number;
-  fieldLen: number;
-  fieldType: number;
-  fieldFlag: number;
-  decimals: number;
-  defaultVal: string;
+  catalog: string
+  schema: string
+  table: string
+  originTable: string
+  name: string
+  originName: string
+  encoding: number
+  fieldLen: number
+  fieldType: number
+  fieldFlag: number
+  decimals: number
+  defaultVal: string
 }
 
 export class ColumnDefinitionPacket {
-  field: FieldInfo;
+  field: FieldInfo
 
   constructor(packet: Packet) {
-    const _buf = packet.buffer;
+    const _buf = packet.buffer
 
-    const catalogLength = packet.readLengthCodedNumber(false, false)!;
+    const catalogLength = packet.readLengthCodedNumber(false, false)!
     const catalog = decodeString(
       _buf,
       'utf8',
       packet.offset,
       packet.offset + catalogLength
-    );
-    packet.offset += catalogLength;
+    )
+    packet.offset += catalogLength
 
-    const _schemaLength = packet.readLengthCodedNumber(false, false)!;
+    const _schemaLength = packet.readLengthCodedNumber(false, false)!
     const schema = decodeString(
       _buf,
       'utf8',
       packet.offset,
       packet.offset + _schemaLength
-    );
-    packet.offset += _schemaLength;
+    )
+    packet.offset += _schemaLength
 
-    const _tableLength = packet.readLengthCodedNumber(false, false)!;
+    const _tableLength = packet.readLengthCodedNumber(false, false)!
     const table = decodeString(
       _buf,
       'utf8',
       packet.offset,
       packet.offset + _tableLength
-    );
-    packet.offset += _tableLength;
+    )
+    packet.offset += _tableLength
 
-    const _orgTableLength = packet.readLengthCodedNumber(false, false)!;
+    const _orgTableLength = packet.readLengthCodedNumber(false, false)!
     const orgTable = decodeString(
       _buf,
       'utf8',
       packet.offset,
       packet.offset + _orgTableLength
-    );
-    packet.offset += _orgTableLength;
+    )
+    packet.offset += _orgTableLength
 
-    const _nameLength = packet.readLengthCodedNumber(false, false)!;
+    const _nameLength = packet.readLengthCodedNumber(false, false)!
     const name = decodeString(
       _buf,
       'utf8',
       packet.offset,
       packet.offset + _nameLength
-    );
-    packet.offset += _nameLength;
+    )
+    packet.offset += _nameLength
 
-    const _orgNameLength = packet.readLengthCodedNumber(false, false)!;
+    const _orgNameLength = packet.readLengthCodedNumber(false, false)!
     const orgName = decodeString(
       _buf,
       'utf8',
       packet.offset,
       packet.offset + _orgNameLength
-    );
-    packet.offset += _orgNameLength;
+    )
+    packet.offset += _orgNameLength
 
-    packet.skip(1); //  length of the following fields (always 0x0c)
+    packet.skip(1) //  length of the following fields (always 0x0c)
 
-    const characterSet = packet.readInt16();
-    const columnLength = packet.readInt32();
-    const columnType = packet.readInt8();
-    const flags = packet.readInt16();
-    const decimals = packet.readInt8();
+    const characterSet = packet.readInt16()
+    const columnLength = packet.readInt32()
+    const columnType = packet.readInt8()
+    const flags = packet.readInt16()
+    const decimals = packet.readInt8()
 
-    packet.skip(1); //  length of the following fields (always 0x0c)
-    let defaultValue = '';
+    packet.skip(1) //  length of the following fields (always 0x0c)
+    let defaultValue = ''
 
     if (packet.haveMoreData()) {
-      const defaultLength = packet.readLengthCodedNumber(false, false)!;
+      const defaultLength = packet.readLengthCodedNumber(false, false)!
       defaultValue = decodeString(
         _buf,
         'utf8',
         packet.offset,
         packet.offset + defaultLength
-      );
+      )
     }
 
     this.field = {
@@ -123,6 +123,6 @@ export class ColumnDefinitionPacket {
       encoding: characterSet,
       defaultVal: defaultValue,
       decimals: decimals,
-    };
+    }
   }
 }

@@ -1,9 +1,9 @@
-import { MysqlError } from '../src/MysqlError';
-import { createTestConnection } from './createTestConnection';
+import { MysqlError } from '../src/MysqlError'
+import { createTestConnection } from './createTestConnection'
 
 describe('Errors', () => {
   it('errors on unclosed quote', async () => {
-    const conn = await createTestConnection();
+    const conn = await createTestConnection()
 
     await expect(conn.query('SELECT "hello')).rejects.toEqual(
       new MysqlError(
@@ -11,8 +11,8 @@ describe('Errors', () => {
         'ER_PARSE_ERROR',
         true
       )
-    );
+    )
 
-    await conn.close();
-  });
-});
+    await conn.close()
+  })
+})

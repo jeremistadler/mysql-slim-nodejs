@@ -1,20 +1,20 @@
-import { CharsetToEncoding } from '../charset_encodings';
-import { ALL_CLIENT_CONSTANTS } from '../constants/clientConstants';
-import { MysqlError } from '../MysqlError';
-import { Packet } from '../packet';
-import { HandshakePacket } from '../packets/handshake';
-import { HandshakeResponse } from '../packets/handshakeResponse';
+import {
+  authSwitchRequest,
+  authSwitchRequestMoreData,
+} from '../authPlugins/authSwitcher'
+import { CharsetToEncoding } from '../charset_encodings'
+import { ALL_CLIENT_CONSTANTS } from '../constants/clientConstants'
+import { MysqlError } from '../MysqlError'
+import { Packet } from '../packet'
+import { HandshakePacket } from '../packets/handshake'
+import { HandshakeResponse } from '../packets/handshakeResponse'
 import {
   authorizedConnection,
   Conn,
   handleFatalError,
   writePacket,
-} from '../v2/connection';
-import { Command, CommandHandlePacketFn } from './command';
-import {
-  authSwitchRequest,
-  authSwitchRequestMoreData,
-} from '../authPlugins/authSwitcher';
+} from '../v2/connection'
+import { Command, CommandHandlePacketFn } from './command'
 
 // import Packets from '../packets/index';
 // import ClientConstants from '../constants/client';
@@ -22,30 +22,30 @@ import {
 // import auth41 from '../auth_41';
 
 function flagNames(flags: number) {
-  const res = [];
+  const res = []
   for (const c in ALL_CLIENT_CONSTANTS) {
     if (flags & ((ALL_CLIENT_CONSTANTS as any)[c] as any)) {
-      res.push(c.replace(/_/g, ' ').toLowerCase());
+      res.push(c.replace(/_/g, ' ').toLowerCase())
     }
   }
-  return res;
+  return res
 }
 
 export class ClientHandshake implements Command {
-  handshake: null | HandshakePacket;
-  clientFlags: number;
-  autPluginName: any;
-  onResult: any;
-  handlePacket: CommandHandlePacketFn;
-  _commandName = 'ClientHandshake';
+  handshake: null | HandshakePacket
+  clientFlags: number
+  autPluginName: any
+  onResult: any
+  handlePacket: CommandHandlePacketFn
+  _commandName = 'ClientHandshake'
 
   constructor(clientFlags: number) {
-    this.handshake = null;
-    this.clientFlags = clientFlags;
+    this.handshake = null
+    this.clientFlags = clientFlags
     this.handlePacket = {
       name: 'handshakeInit',
       fn: this.handleHandshakeInitPacket,
-    };
+    }
   }
 
   sendCredentials(conn: Conn, handshake: HandshakePacket) {
@@ -55,10 +55,10 @@ export class ClientHandshake implements Command {
         'Client handshake packet: flags:%d=(%s)',
         this.clientFlags,
         flagNames(this.clientFlags).join(', ')
-      );
+      )
     }
 
-    this.autPluginName = handshake.autPluginName;
+    this.autPluginName = handshake.autPluginName
 
     const handshakeResponse = new HandshakeResponse({
       flags: this.clientFlags,
@@ -70,16 +70,16 @@ export class ClientHandshake implements Command {
       authPluginData2: handshake.authPluginData2,
       compress: false,
       connectAttributes: {},
-    });
+    })
 
-    writePacket(conn, handshakeResponse.toPacket());
+    writePacket(conn, handshakeResponse.toPacket())
   }
 
   handleHandshakeInitPacket(
     helloPacket: Packet,
     connection: Conn
   ): CommandHandlePacketFn {
-    this.handshake = HandshakePacket.fromPacket(helloPacket);
+    this.handshake = HandshakePacket.fromPacket(helloPacket)
 
     if (connection.config.debug) {
       // eslint-disable-next-line
@@ -87,29 +87,29 @@ export class ClientHandshake implements Command {
         'Server hello packet: capability flags:%d=(%s)',
         this.handshake.capabilityFlags,
         flagNames(this.handshake.capabilityFlags).join(', ')
-      );
+      )
     }
 
-    connection.serverCapabilityFlags = this.handshake.capabilityFlags;
-    connection.serverEncoding = CharsetToEncoding[this.handshake.characterSet];
-    connection.connectionId = this.handshake.connectionId;
+    connection.serverCapabilityFlags = this.handshake.capabilityFlags
+    connection.serverEncoding = CharsetToEncoding[this.handshake.characterSet]
+    connection.connectionId = this.handshake.connectionId
 
-    this.sendCredentials(connection, this.handshake);
+    this.sendCredentials(connection, this.handshake)
 
-    return { name: 'handshakeResult', fn: this.handleHandshakeResult };
+    return { name: 'handshakeResult', fn: this.handleHandshakeResult }
   }
 
   handleHandshakeResult(
     packet: Packet,
     connection: Conn
   ): CommandHandlePacketFn {
-    const marker = packet.peekByte();
+    const marker = packet.peekByte()
     // packet can be OK_Packet, ERR_Packet, AuthSwitchRequest, AuthNextFactor
     // or AuthMoreData
     if (marker === 0xfe || marker === 1 || marker === 0x02) {
       try {
         if (marker === 1) {
-          authSwitchRequestMoreData(packet, connection, this);
+          authSwitchRequestMoreData(packet, connection, this)
         } else {
           // if authenticationFactor === 0, it means the server does not support
           // the multi-factor authentication capability
@@ -124,24 +124,24 @@ export class ClientHandshake implements Command {
           // if marker === 0x02, it means it is an AuthNextFactor packet,
           // which is similar in structure to an AuthSwitchRequest packet,
           // so, we can use it directly
-          authSwitchRequest(packet, connection, this);
+          authSwitchRequest(packet, connection, this)
         }
-        return { name: 'handshakeNextResult', fn: this.handleHandshakeResult };
+        return { name: 'handshakeNextResult', fn: this.handleHandshakeResult }
       } catch (err: any) {
         const mysqlError = new MysqlError(
           err.message,
           'AUTH_SWITCH_PLUGIN_ERROR',
           true
-        );
-        mysqlError.cause = err;
+        )
+        mysqlError.cause = err
 
         if (this.onResult) {
-          this.onResult(err);
+          this.onResult(err)
         } else {
-          handleFatalError(connection, mysqlError);
+          handleFatalError(connection, mysqlError)
         }
 
-        return null;
+        return null
       }
     }
 
@@ -150,20 +150,20 @@ export class ClientHandshake implements Command {
         'Unexpected packet during handshake phase',
         'HANDSHAKE_UNKNOWN_ERROR',
         true
-      );
+      )
       // Unknown handshake errors are fatal
 
       if (this.onResult) {
-        this.onResult(err);
+        this.onResult(err)
       } else {
-        handleFatalError(connection, err);
+        handleFatalError(connection, err)
       }
-      return null;
+      return null
     }
     // this should be called from ClientHandshake command only
     // and skipped when called from ChangeUser command
     if (!connection.authorized) {
-      authorizedConnection(connection);
+      authorizedConnection(connection)
       // if (connection.config.compress) {
       //   const enableCompression =
       //     require('../compressed_protocol.js').enableCompression;
@@ -171,8 +171,8 @@ export class ClientHandshake implements Command {
       // }
     }
     if (this.onResult) {
-      this.onResult(null);
+      this.onResult(null)
     }
-    return null;
+    return null
   }
 }
